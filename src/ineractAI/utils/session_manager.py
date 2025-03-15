@@ -1,6 +1,6 @@
 import streamlit as st
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 from database import db_service as db
 
 # Cache for session data to reduce database calls
@@ -157,7 +157,11 @@ def select_avatar(avatar):
     if 'db_session_id' in st.session_state:
         session_id = st.session_state.db_session_id
         if session_id in _session_cache:
-            _session_cache[session_id]['avatar_id'] = avatar['id']
+            # Check if _session_cache[session_id] is None or not a dictionary
+            if _session_cache[session_id] is None:
+                _session_cache[session_id] = {'avatar_id': avatar['id']}
+            else:
+                _session_cache[session_id]['avatar_id'] = avatar['id']
 
     try:
         # Update the session in the database
