@@ -32,7 +32,7 @@ class ScenarioDAO:
 
     @staticmethod
     def get_all_scenarios():
-        """Retrieve all scenarios including video paths, thread-safe with caching"""
+        """Retrieve all scenarios including image paths, thread-safe with caching"""
         with _scenario_cache_lock:
             if 'all_scenarios' in _scenario_cache:
                 return _scenario_cache['all_scenarios']
@@ -41,17 +41,17 @@ class ScenarioDAO:
         try:
             conn = ScenarioDAO._get_thread_connection()
             cursor = conn.cursor()
-            
-            # ✅ Ensure video_path is included explicitly
-            cursor.execute("SELECT id, title, description, video_path FROM scenarios ORDER BY id")
-            
+
+            # Modified query to select the correct columns
+            cursor.execute("SELECT id, title, description, image_path FROM scenarios ORDER BY id")
+
             scenarios = []
             for row in cursor.fetchall():
                 scenarios.append({
                     "id": row[0],
                     "title": row[1],
                     "description": row[2],
-                    "video_path": row[3] if row[3] else "src/ineractAI/videos/default.mp4"  # Fallback if NULL
+                    "image_path": row[3]
                 })
 
             # Update cache
@@ -60,12 +60,12 @@ class ScenarioDAO:
 
             return scenarios
         except sqlite3.Error as e:
-            print(f"⚠️ Database error in get_all_scenarios(): {e}")
+            print(f"Database error in get_all_scenarios(): {e}")
             return []
-    
+
     @staticmethod
     def get_scenario_by_id(scenario_id):
-        """Retrieve a complete scenario including video path, phases, options, and feedback"""
+        """Retrieve a complete scenario including phases, options, and feedback"""
         cache_key = f'scenario_{scenario_id}'
         with _scenario_cache_lock:
             if cache_key in _scenario_cache:
@@ -76,8 +76,8 @@ class ScenarioDAO:
             conn = ScenarioDAO._get_thread_connection()
             cursor = conn.cursor()
 
-            # ✅ Ensure video_path is included
-            cursor.execute("SELECT id, title, description, video_path FROM scenarios WHERE id = ?", (scenario_id,))
+            # Updated query to select the correct columns
+            cursor.execute("SELECT id, title, description, image_path FROM scenarios WHERE id = ?", (scenario_id,))
             scenario_row = cursor.fetchone()
 
             if not scenario_row:
@@ -87,7 +87,7 @@ class ScenarioDAO:
                 "id": scenario_row[0],
                 "title": scenario_row[1],
                 "description": scenario_row[2],
-                "video_path": scenario_row[3] if scenario_row[3] else "src/ineractAI/videos/default.mp4"
+                "image_path": scenario_row[3]
             }
             scenario['phases'] = []
 
@@ -128,7 +128,7 @@ class ScenarioDAO:
 
             return scenario
         except sqlite3.Error as e:
-            print(f"⚠️ Database error in get_scenario_by_id(): {e}")
+            print(f"Database error in get_scenario_by_id(): {e}")
             return None
 
     @staticmethod

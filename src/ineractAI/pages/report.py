@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from database import db_service as db
 from utils.session_manager import get_session_report, reset_session
-from database.scenario_dao import ScenarioDAO  # Add this import
-import matplotlib.pyplot as plt
+from database.scenario_dao import ScenarioDAO
+
 
 def generate_report(responses):
     """Generate a report DataFrame from response data"""
@@ -49,6 +49,7 @@ def generate_report(responses):
             unique_report_data.append(entry)
 
     return pd.DataFrame(unique_report_data)
+
 
 def generate_detailed_report():
     """Generate a session walkthrough including mood shifts and decision events."""
@@ -148,6 +149,26 @@ def show_report():
                 with col3:
                     st.metric(label="Needed Guidance", value=f"{needed_guidance}/{total_responses}")
 
+                # Show visualization using Streamlit's built-in charting
+                st.subheader("Response Analysis")
+                if positive_choices > 0 or needed_guidance > 0:
+                    # Create data for the pie chart
+                    chart_data = pd.DataFrame({
+                        "Category": ["Positive Choices", "Needed Guidance"],
+                        "Count": [positive_choices, needed_guidance]
+                    })
+
+                    # Use Streamlit's native chart
+                    st.bar_chart(chart_data.set_index("Category"))
+
+                # Display emotion distribution if available
+                if 'emotion' in available_columns and 'Detected Emotion' in display_df.columns:
+                    emotion_counts = display_df['Detected Emotion'].value_counts().reset_index()
+                    emotion_counts.columns = ['Emotion', 'Count']
+
+                    st.subheader("Emotion Distribution")
+                    st.bar_chart(emotion_counts.set_index('Emotion'))
+
                 # Show recommendations based on performance
                 show_recommendations(positive_choices, needed_guidance, total_responses)
             else:
@@ -230,6 +251,14 @@ def fallback_to_session_state():
         total_responses = len(report_df)
         st.metric(label="Total Responses", value=total_responses)
 
+        # Display emotion distribution if available
+        if 'Detected Emotion' in report_df.columns:
+            emotion_counts = report_df['Detected Emotion'].value_counts().reset_index()
+            emotion_counts.columns = ['Emotion', 'Count']
+
+            st.subheader("Emotion Distribution")
+            st.bar_chart(emotion_counts.set_index('Emotion'))
+
         # Show generic recommendations
         show_recommendations(total_responses, 0, total_responses)
     else:
@@ -268,53 +297,73 @@ def show_recommendations(positive_choices, needed_guidance, total_responses):
         </div>
         """, unsafe_allow_html=True)
 
+
 def plot_emotion_timeline():
-    """Plot the child's emotional progression over time."""
+    """Plot the child's emotional progression over time using Streamlit's built-in charts."""
     if "emotion_timeline" not in st.session_state or not st.session_state.emotion_timeline:
         st.warning("No emotion tracking data available.")
         return
 
-    timestamps = [entry["timestamp"] for entry in st.session_state.emotion_timeline]
-    emotions = [entry["emotion"].capitalize() for entry in st.session_state.emotion_timeline]
+    # Create DataFrame from emotion timeline
+    emotion_data = []
+    for entry in st.session_state.emotion_timeline:
+        emotion_data.append({
+            "Timestamp": entry["timestamp"],
+            "Emotion": entry["emotion"].capitalize(),
+            "Confidence": entry["confidence"]
+        })
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(timestamps, emotions, marker="o", linestyle="-", color="blue")
-    ax.set_xlabel("Timestamp")
-    ax.set_ylabel("Emotion")
-    ax.set_title("Emotional Changes Over Time")
-    plt.xticks(rotation=45)
-    
-    st.pyplot(fig)
+    df = pd.DataFrame(emotion_data)
 
-from fpdf import FPDF
+    # Display emotion timeline
+    st.subheader("Emotional Changes Over Time")
 
-def generate_pdf_report():
-    """Generate and download the session report as a PDF."""
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    
-    pdf.cell(200, 10, txt="Child’s Social Learning Session Report", ln=True, align="C")
-    pdf.ln(10)
+    # Display as a line chart using Streamlit
+    if len(df) > 0:
+        # Create a numeric mapping for emotions for the chart
+        emotion_mapping = {emotion: i for i, emotion in enumerate(df['Emotion'].unique())}
+        df['Emotion_Value'] = df['Emotion'].map(emotion_mapping)
 
-    # Add scenario walkthrough
-    if "responses" in st.session_state:
-        for resp in st.session_state.responses:
-            pdf.cell(200, 10, txt=f"Scenario: {resp.get('scenario_id', 'Unknown')}", ln=True)
-            pdf.cell(200, 10, txt=f"Response: {resp.get('response', 'Unknown')}", ln=True)
-            pdf.cell(200, 10, txt=f"Timestamp: {resp.get('timestamp', 'Unknown')}", ln=True)
-            pdf.ln(5)
-    
-    # Add emotional progression
-    if "emotion_timeline" in st.session_state:
-        pdf.add_page()
-        pdf.cell(200, 10, txt="Emotional Progression", ln=True, align="C")
-        pdf.ln(5)
-        for entry in st.session_state.emotion_timeline:
-            pdf.cell(200, 10, txt=f"{entry['timestamp']} - {entry['emotion']} ({entry['confidence']*100:.1f}%)", ln=True)
-    
-    # Save and allow download
-    pdf_filename = "session_report.pdf"
-    pdf.output(pdf_filename)
-    st.download_button(label="Download PDF Report", data=open(pdf_filename, "rb"), file_name=pdf_filename)
+        # Display the line chart
+        st.line_chart(df.set_index('Timestamp')['Emotion_Value'])
+
+        # Add a legend explaining the numeric mapping
+        st.write("Emotion Legend:")
+        for emotion, value in emotion_mapping.items():
+            st.write(f"{value}: {emotion}")
+    else:
+        st.info("Not enough emotion data to display a timeline.")
+
+
+def generate_downloadable_report():
+    """Generate a downloadable report in CSV format instead of PDF."""
+    if "responses" not in st.session_state:
+        st.warning("No data available to generate a report.")
+        return
+
+    # Create a DataFrame from session responses
+    report_data = []
+    for resp in st.session_state.responses:
+        report_data.append({
+            "Scenario": resp.get('scenario_id', 'Unknown'),
+            "Phase": resp.get('phase_id', 'Unknown'),
+            "Response": resp.get('response', 'Unknown'),
+            "Emotion": resp.get('emotion', 'Unknown').capitalize(),
+            "Timestamp": resp.get('timestamp', 'Unknown')
+        })
+
+    if not report_data:
+        st.warning("No response data available to generate a report.")
+        return
+
+    # Create DataFrame and convert to CSV
+    df = pd.DataFrame(report_data)
+    csv = df.to_csv(index=False)
+
+    # Add download button
+    st.download_button(
+        label="Download Report as CSV",
+        data=csv,
+        file_name="social_skills_report.csv",
+        mime="text/csv"
+    )
