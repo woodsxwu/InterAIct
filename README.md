@@ -17,6 +17,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 - 🐶 **Cute Companion Avatars**
 - 📚 **Real-time Emotion Recognition**
 - 🎨 **Real-World Scenarios**
+- 🎶 **AI Voice Guidance**
 - 👏 **Interactive Choices & Feedback**
 - 📑 **Emotion Report Genetation**
 - 🛟 **High Privacy & Security**
@@ -24,7 +25,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 
 ## Preview
 
-![AI Learning Screenshot](src/interactAI/assets/screenshot.png)
+![AI Learning Screenshot](src/ineractAI/assets/screenshot.png)
 
 ## Prerequisite
 
@@ -105,6 +106,10 @@ streamlit run app.py
 📧 Contact: [wu.zhixia@northeastern.edu](mailto:wu.zhixia@northeastern.edu)  
 **Zihao Wang**  
 📧 Contact: [wang.zihao10@northeastern.edu](mailto:wang.zihao10@northeastern.edu)
+
+## Acknowledgments
+
+We would like to express our gratitude to [Autism Speaks](https://www.autismspeaks.org/social-skills-and-autism) for providing valuable information that contributed to this project.
 
 ## License
 
