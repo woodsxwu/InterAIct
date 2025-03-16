@@ -36,6 +36,10 @@ def initialize_session_state():
     if 'db_session_id' in st.session_state and 'selected_avatar' not in st.session_state:
         restore_session_from_database(st.session_state.db_session_id)
 
+    # Initialize WebRTC state flag
+    if 'webrtc_ctx_active' not in st.session_state:
+        st.session_state.webrtc_ctx_active = False
+
 
 def restore_session_from_database(session_id):
     """Restore all session data from the database"""
@@ -259,6 +263,27 @@ def record_detected_emotion(emotion, confidence):
 
         st.session_state.detected_emotions.append({
             "emotion": emotion,
+            "confidence": confidence,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+
+def record_attention_metric(attention_state, confidence):
+    """Record attention metrics in the database"""
+    try:
+        db.record_attention_metric(
+            st.session_state.db_session_id,
+            attention_state,
+            confidence
+        )
+    except Exception as e:
+        print(f"Error recording attention metric: {e}")
+        # Fallback to session state storage
+        if 'detected_attention' not in st.session_state:
+            st.session_state.detected_attention = []
+
+        st.session_state.detected_attention.append({
+            "attention_state": attention_state,
             "confidence": confidence,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from database import db_service as db
 from database.scenario_dao import ScenarioDAO
-from pages.report import generate_report
+from pages.report import generate_report, calculate_attention_score
 
 
 def show_parent_dashboard():
@@ -125,6 +125,130 @@ def show_parent_dashboard():
                     st.metric(label="Positive Choices", value=f"{positive_choices}/{total_responses}")
                 with col4:
                     st.metric(label="Needed Guidance", value=f"{needed_guidance}/{total_responses}")
+                
+                # Display emotion data if available
+                if 'emotion_detections' in report_data and report_data['emotion_detections']:
+                    st.subheader("Emotion Analysis")
+                    
+                    # Create DataFrame
+                    emotion_df = pd.DataFrame(report_data['emotion_detections'])
+                    
+                    # Only capitalize the emotion, don't remap it
+                    if 'emotion' in emotion_df.columns:
+                        emotion_df['emotion'] = emotion_df['emotion'].apply(
+                            lambda x: x.capitalize() if isinstance(x, str) else "Unknown"
+                        )
+                    
+                    # Show emotion distribution
+                    emotion_counts = emotion_df['emotion'].value_counts().reset_index()
+                    emotion_counts.columns = ['Emotion', 'Count']
+                    
+                    # Display chart
+                    st.bar_chart(emotion_counts.set_index('Emotion'))
+                    
+                    # Show most common emotions
+                    st.markdown(f"**Most frequent emotions:** {', '.join(emotion_counts['Emotion'].head(3).tolist())}")
+                    
+                    # Add detailed description of what the emotions mean
+                    st.markdown("""
+                    **Understanding the Emotion Categories:**
+                    - **Natural/Neutral**: Calm, balanced emotional state
+                    - **Joy/Happy**: Expressing happiness or excitement
+                    - **Sadness**: Expressing sadness or disappointment
+                    - **Anger**: Expressing frustration or anger
+                    - **Fear**: Expressing worry or fear
+                    - **Surprise**: Expressing astonishment or surprise
+                    """)
+                
+                # Display attention metrics if available
+                if 'attention_metrics' in report_data and report_data['attention_metrics']:
+                    st.subheader("Attention Analysis")
+                    
+                    # Create DataFrame
+                    attention_df = pd.DataFrame(report_data['attention_metrics'])
+                    
+                    # Calculate attention score
+                    attention_score = calculate_attention_score(attention_df)
+                    
+                    # Display score
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric(label="Overall Attention Score", value=f"{attention_score:.1f}/10")
+                    
+                    with col2:
+                        # Interpret score
+                        if attention_score >= 8:
+                            attention_quality = "Excellent"
+                        elif attention_score >= 6:
+                            attention_quality = "Good"
+                        elif attention_score >= 4:
+                            attention_quality = "Fair"
+                        else:
+                            attention_quality = "Needs Improvement"
+                        
+                        st.metric(label="Attention Quality", value=attention_quality)
+                    
+                    # Show attention distribution
+                    attention_counts = attention_df['attention_state'].value_counts().reset_index()
+                    attention_counts.columns = ['Attention State', 'Count']
+                    
+                    # Display chart
+                    st.bar_chart(attention_counts.set_index('Attention State'))
+                    
+                    # Display attention state descriptions
+                    st.markdown("""
+                    **Attention States:**
+                    - **Attentive**: Child is fully engaged with the content
+                    - **Partially Attentive**: Child is somewhat distracted but still participating
+                    - **Not Attentive**: Child appears distracted or disengaged
+                    """)
+                    
+                    # Display attention over time if enough data points
+                    if len(attention_df) > 5:
+                        st.subheader("Attention Over Time")
+                        
+                        # Create numeric mapping for attention states
+                        attention_values = {
+                            "Attentive": 10,
+                            "Partially Attentive": 5,
+                            "Not Attentive": 1,
+                            "Unknown": 3
+                        }
+                        
+                        # Convert attention states to numeric values
+                        if 'attention_state' in attention_df.columns:
+                            attention_df['attention_value'] = attention_df['attention_state'].map(
+                                lambda x: attention_values.get(x, 3)
+                            )
+                            
+                            # Add sequence number if timestamp isn't usable
+                            attention_df['sequence'] = range(len(attention_df))
+                            
+                            # Display line chart
+                            st.line_chart(attention_df.set_index('sequence')['attention_value'])
+                    
+                    # Recommendations based on attention
+                    st.markdown("### Attention Recommendations")
+                    
+                    if attention_score < 5:
+                        st.markdown("""
+                        - Consider shorter learning sessions with more frequent breaks
+                        - Use more engaging, interactive learning materials
+                        - Try activities that specifically target focus and attention
+                        - Consider consulting with a specialist if attention difficulties persist
+                        """)
+                    elif attention_score < 7:
+                        st.markdown("""
+                        - Mix high-interest activities with more challenging ones
+                        - Use visual timers to help maintain focus for set periods
+                        - Incorporate movement breaks between learning activities
+                        """)
+                    else:
+                        st.markdown("""
+                        - Continue using engaging learning materials
+                        - Gradually increase the duration of focused activities
+                        - Encourage self-monitoring of attention
+                        """)
             else:
                 st.info("No activity data available yet. Have your child complete some scenarios to see progress.")
         except Exception as e:
@@ -181,6 +305,12 @@ def show_parent_dashboard():
         st.checkbox("Receive alerts for distressed emotions", value=True)
         st.checkbox("Receive session summary by email", value=False)
         st.text_input("Parent Email")
+        
+        # Attention alerts
+        st.markdown("<h3>Attention Monitoring</h3>", unsafe_allow_html=True)
+        st.checkbox("Alert when attention drops below threshold", value=True)
+        st.slider("Attention alert threshold", min_value=1, max_value=10, value=5, 
+                 help="Send alert when attention score drops below this value")
 
         # Save settings button
         if st.button("Save Settings"):
@@ -218,10 +348,15 @@ def fallback_to_session_state_reports():
             else:
                 scenario_title = f"Scenario {scenario_id}"
 
+            # For emotion, just capitalize it without remapping
+            emotion = resp.get('emotion', 'Unknown')
+            if isinstance(emotion, str):
+                emotion = emotion.capitalize()
+
             data.append({
                 'Scenario': scenario_title,
                 'Response': f"Option {resp.get('response', 'Unknown')}",
-                'Emotion': resp.get('emotion', 'Unknown').capitalize(),
+                'Emotion': emotion,
                 'Time': resp.get('timestamp', 'Unknown'),
                 'Positive Choice': 'Yes',  # Default as we don't have this in session state
                 'Needed Guidance': 'No'  # Default as we don't have this in session state
@@ -240,6 +375,21 @@ def fallback_to_session_state_reports():
                 st.metric(label="Positive Choices", value=f"{total}/{total}")
             with col3:
                 st.metric(label="Needed Guidance", value=f"0/{total}")
+                
+            # Check for attention data in session state
+            if hasattr(st.session_state, 'detected_attention') and st.session_state.detected_attention:
+                st.subheader("Attention Data (Session State)")
+                attention_df = pd.DataFrame(st.session_state.detected_attention)
+                
+                # Calculate simple attention score if possible
+                if 'attention_state' in attention_df.columns:
+                    attention_score = calculate_attention_score(attention_df)
+                    st.metric("Attention Score", f"{attention_score:.1f}/10")
+                    
+                    # Show distribution
+                    attention_counts = attention_df['attention_state'].value_counts().reset_index()
+                    attention_counts.columns = ['Attention State', 'Count']
+                    st.bar_chart(attention_counts.set_index('Attention State'))
         else:
             st.info("No activity data available yet. Have your child complete some scenarios to see progress.")
     else:

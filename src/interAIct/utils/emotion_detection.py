@@ -1,203 +1,143 @@
 import streamlit as st
 import time
-import random
-from database.db_schema import get_db_connection
-from database import db_service as db
-from utils.session_manager import record_detected_emotion
 
+# This file now functions as a compatibility layer between the old emotion detection approach
+# and the new WebRTC-based approach. Most functionality is delegated to webrtc_emotion_detection.py
+
+# Import WebRTC emotion detection functions
+from utils.webrtc_emotion_detection import (
+    get_emotion_feedback as webrtc_get_emotion_feedback,
+    get_attention_state as webrtc_get_attention_state,
+    is_child_distressed as webrtc_is_distressed,
+    setup_emotion_detection,
+    render_emotion_display
+)
 
 class EmotionDetector:
     """
-    A placeholder for emotion detection functionality with database storage.
-    In a real implementation, this would use computer vision to detect emotions.
+    Legacy EmotionDetector class that now delegates to WebRTC-based implementation.
+    Maintained for backward compatibility with existing code.
     """
 
-    def __init__(self, session_id=None):
+    def __init__(self, session_id=None, db_callback=None):
         """Initialize the emotion detector"""
         self.enabled = False
-        self.emotions = ["happy", "neutral", "confused", "frustrated", "sad"]
+        self.session_id = session_id or st.session_state.get('db_session_id')
+        self.db_callback = db_callback
+        
+        # Initialize minimal state for compatibility
         self.current_emotion = "neutral"
         self.confidence = 0.0
+        self.sustained_attention = "Unknown"
         self.last_update = time.time()
-        self.update_interval = 2.0  # Update emotion every 2 seconds (in simulation)
-        self.session_id = session_id or st.session_state.get('db_session_id')
-
+    
     def start(self):
-        """Start the emotion detector"""
+        """Start the emotion detector - delegates to WebRTC-based setup"""
+        # Set the flag that would normally be used
         self.enabled = True
         st.session_state.emotion_detector_running = True
-
+        return True
+    
     def stop(self):
         """Stop the emotion detector"""
         self.enabled = False
         st.session_state.emotion_detector_running = False
-
+    
     def get_current_emotion(self):
         """
-        Get the current detected emotion
-        In a real implementation, this would process camera frames
+        Get the current detected emotion using WebRTC-based detection
         """
-        # Check if it's time to update the emotion (for simulation)
-        current_time = time.time()
-        if current_time - self.last_update > self.update_interval:
-            self._simulate_emotion_detection()
-            self.last_update = current_time
-
-            # Store the detected emotion in database
-            if self.session_id:
-                try:
-                    record_detected_emotion(self.current_emotion, self.confidence)
-                except Exception:
-                    pass
-
-            # Fallback to session state storage
-            if 'detected_emotions' not in st.session_state:
-                st.session_state.detected_emotions = []
-
-            st.session_state.detected_emotions.append({
-                "emotion": self.current_emotion,
-                "confidence": self.confidence,
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-            })
-
+        # Call WebRTC implementation and format result for compatibility
+        emotion = webrtc_get_emotion_feedback()
+        confidence = 0.8  # Using a default confidence value
+        
         return {
-            "emotion": self.current_emotion,
-            "confidence": self.confidence
+            "emotion": emotion,
+            "confidence": confidence,
+            "attention": webrtc_get_attention_state(),  # Use the new attention function
+            "timestamp": time.time()
         }
-
-    def _simulate_emotion_detection(self):
+    
+    def get_current_state(self):
         """
-        Simulate emotion detection for demonstration purposes
-        In a real implementation, this would be replaced with actual computer vision
+        Get the current state for compatibility
+        
+        Returns:
+            tuple: (frame, result_dict)
         """
-        # Simulate emotion detection with random values
-        emotion_index = random.randint(0, len(self.emotions) - 1)
-        self.current_emotion = self.emotions[emotion_index]
-        self.confidence = random.uniform(0.7, 0.95)  # Random confidence between 70-95%
-
+        # Get emotion data from WebRTC implementation
+        emotion = webrtc_get_emotion_feedback()
+        attention = webrtc_get_attention_state()
+        
+        # Return minimal compatible format
+        result = {
+            "dominant_emotion": emotion,
+            "confidence": 0.8,  # Default confidence
+            "sustained_attention": attention,  # Use the new attention state
+            "timestamp": time.time()
+        }
+        
+        # Return None for frames since WebRTC handles this differently
+        return None, result
+    
     def is_child_distressed(self):
         """
-        Check if the child appears distressed based on recent emotions
-        In a real implementation, this would analyze emotion patterns
+        Check if the child appears distressed - delegates to WebRTC implementation
         """
-        if not self.enabled:
-            return False
-
-        # Get the current emotion
-        current = self.get_current_emotion()
-
-        # Check if current emotion indicates distress
-        distressed = current["emotion"] in ["frustrated", "sad"] and current["confidence"] > 0.8
-
-        # Create parent alert if distressed
-        if distressed and self.session_id:
-            try:
-                # Get current scenario and phase from session state
-                scenario_id = st.session_state.get('current_scenario_id')
-                phase_id = st.session_state.get('current_phase')
-
-                if scenario_id and phase_id:
-                    db.create_parent_alert(
-                        self.session_id,
-                        scenario_id,
-                        phase_id,
-                        current["emotion"]
-                    )
-            except Exception:
-                pass
-
-        return distressed
+        return webrtc_is_distressed()
 
 
 def initialize_emotion_detection():
-    """Initialize the emotion detector in the session state"""
+    """Initialize emotion detection - now delegates to WebRTC setup"""
+    # Maintain backward compatibility by setting up the legacy detector
+    # in session state if it doesn't exist
     if 'emotion_detector' not in st.session_state:
         st.session_state.emotion_detector = EmotionDetector(
             session_id=st.session_state.get('db_session_id')
         )
-
+    
     # Update the enabled state based on camera toggle
-    if 'camera_enabled' in st.session_state:
-        if st.session_state.camera_enabled:
+    if st.session_state.get('camera_enabled', False):
+        if not st.session_state.get('emotion_detector_running', False):
+            print("Starting emotion detector")
             st.session_state.emotion_detector.start()
-        else:
+            st.session_state.emotion_detector_running = True
+    else:
+        if st.session_state.get('emotion_detector_running', False):
+            print("Stopping emotion detector")
             st.session_state.emotion_detector.stop()
+            st.session_state.emotion_detector_running = False
 
 
 def render_emotion_detection_ui():
-    """Render UI elements for emotion detection (when enabled)"""
-    if 'emotion_detector' not in st.session_state or not st.session_state.emotion_detector.enabled:
-        return
-
-    # Get the current detected emotion
-    emotion_data = st.session_state.emotion_detector.get_current_emotion()
-
-    # Display the emotion detection results in a small container
-    with st.container():
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            # Map emotions to emojis
-            emotion_emojis = {
-                "happy": "😊",
-                "neutral": "😐",
-                "confused": "🤔",
-                "frustrated": "😣",
-                "sad": "😢"
-            }
-            emoji = emotion_emojis.get(emotion_data["emotion"], "😐")
-            st.markdown(f"<div style='text-align: center; font-size: 40px;'>{emoji}</div>", unsafe_allow_html=True)
-
-        with col2:
-            st.markdown(f"**Detected mood:** {emotion_data['emotion'].capitalize()}")
-            st.progress(emotion_data["confidence"])
-
-    # Check if child appears distressed
-    if st.session_state.emotion_detector.is_child_distressed():
-        # Trigger parent alert if not already triggered
-        if not st.session_state.show_parent_alert:
-            st.session_state.show_parent_alert = True
-            st.session_state.emotion = emotion_data["emotion"]
-            st.warning(
-                "The system has detected that you might be feeling frustrated or sad. Would you like to take a short break?")
-            
-
-def record_significant_mood_changes(emotion, confidence):
-    """Log emotion changes only if they differ significantly from the last recorded emotion."""
-    if "last_detected_emotion" not in st.session_state:
-        st.session_state.last_detected_emotion = None  # Initialize
-    
-    # Record the first emotion or only log when it changes significantly
-    if st.session_state.last_detected_emotion != emotion:
-        st.session_state.last_detected_emotion = emotion  # Update stored emotion
+    """
+    Render emotion detection UI - now delegates to WebRTC implementation
+    """
+    # Only render if camera is enabled
+    if st.session_state.get('camera_enabled', False):
+        # Set up WebRTC streaming for emotion detection
+        webrtc_ctx = setup_emotion_detection()
         
-        # Save in detected emotions timeline
-        if "emotion_timeline" not in st.session_state:
-            st.session_state.emotion_timeline = []
+        # If WebRTC is active, render the emotion display
+        if webrtc_ctx and webrtc_ctx.state.playing:
+            render_emotion_display()
+            
+            # Also check for distress
+            if webrtc_is_distressed():
+                st.warning("I notice you might be feeling upset. Would you like to take a short break?")
 
-        st.session_state.emotion_timeline.append({
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "emotion": emotion,
-            "confidence": confidence
-        })
 
-        # If distress is detected, trigger parent alert log
-        if emotion in ["frustrated", "sad"] and confidence > 0.8:
-            record_parent_alert(emotion)  # Log distress event
 def get_emotion_feedback():
-    """Generate feedback based on the child's detected emotion."""
-    if "emotion_detector" not in st.session_state:
-        return "No emotion detected."
+    """
+    Generate feedback based on the child's detected emotion.
+    Now delegates to WebRTC implementation.
+    """
+    return webrtc_get_emotion_feedback()
 
-    emotion_data = st.session_state.emotion_detector.get_current_emotion()
-    emotion = emotion_data["emotion"]
-    
-    # Define feedback messages based on detected emotions
-    feedback_messages = {
-        "happy": "Great! You seem happy and engaged. Let's continue learning!",
-        "neutral": "You seem neutral. Would you like to continue or take a short break?",
-        "confused": "I see that you're confused. Let's try explaining things in a different way.",
-        "frustrated": "I notice some frustration. Take a deep breath and let's try again together.",
-        "sad": "You look a bit sad. Would you like to take a short break?"
-    }
 
-    return feedback_messages.get(emotion, "I'm here to help! Let me know how you're feeling.")
+def get_attention_state():
+    """
+    Get the current attention state of the child.
+    Delegates to WebRTC implementation.
+    """
+    return webrtc_get_attention_state()

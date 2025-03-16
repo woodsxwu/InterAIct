@@ -40,7 +40,7 @@ def show_scenario_selection():
                     """, unsafe_allow_html=True)
 
                     # Show scenario image with reduced size
-                    st.image(scenario['image_path'], width=250)
+                    # st.image(scenario['image_path'], width=250)
 
                     # Add button to start this scenario
                     if st.button(f"Play this scenario", key=f"scenario_{scenario['id']}", use_container_width=True):

@@ -3,6 +3,9 @@ from database.scenario_dao import ScenarioDAO
 from pages.tts_helper import text_to_speech, create_tts_button, auto_play_prompt
 import time
 
+# Update import to use WebRTC-based emotion detection
+from utils.webrtc_emotion_detection import get_emotion_feedback, is_child_distressed
+
 # Cache for scenarios to avoid repeated database calls
 _scenario_cache = {}
 
@@ -216,8 +219,23 @@ def show_phase_feedback():
         current_phase = st.session_state.get('current_phase', 'unknown')
         feedback_key = f"feedback_{current_scenario_id}_{current_phase}"
 
-        # Use cached audio playback
-        auto_play_prompt(feedback_text, feedback_key)
+        # Create and directly insert the audio element with autoplay
+        if st.session_state.get('sound_enabled', True):
+            audio_html = text_to_speech(feedback_text, auto_play=True)
+            st.markdown(f"<div>{audio_html}</div>", unsafe_allow_html=True)
+            # Mark as played
+            st.session_state[f"played_{feedback_key}"] = True
+            # Log for debugging
+            print(f"Playing feedback audio: {feedback_text[:30]}... with key {feedback_key}")
+
+        # Check for distress using WebRTC emotion detection
+        if st.session_state.get('camera_enabled', False) and st.session_state.get('webrtc_ctx_active', False):
+            # Use the WebRTC-based is_child_distressed function
+            if is_child_distressed():
+                st.session_state.show_parent_alert = True
+                # Get current emotion for the message
+                current_emotion = get_emotion_feedback()
+                st.session_state.emotion = current_emotion
 
         # Parent alert if needed
         if st.session_state.get('show_parent_alert', False):

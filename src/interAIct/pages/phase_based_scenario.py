@@ -6,66 +6,59 @@ from database import db_service as db
 from database.scenario_dao import ScenarioDAO
 from utils.session_manager import record_response
 from pages.tts_helper import text_to_speech, auto_play_prompt
-from utils.emotion_detection import get_emotion_feedback
+# Update import to use WebRTC-based emotion detection
+from utils.webrtc_emotion_detection import get_emotion_feedback
 
 
 def add_custom_css():
-    """Add custom CSS for enhanced UI elements and hiding control buttons"""
+    """Add custom CSS for enhanced UI elements"""
     st.markdown("""
     <style>
-        /* Enhanced option card with hover effects */
+        /* Option card styling */
         .option-card {
             padding: 15px;
             border-radius: 15px;
             background-color: #f5f5f5;
-            margin-bottom: 10px;
-            cursor: pointer;
+            margin-bottom: 15px;
             transition: all 0.3s ease;
             border: 2px solid transparent;
+            display: flex;
+            align-items: center;
         }
-
+        
         .option-card:hover {
             background-color: #e0e0e0;
-            transform: scale(1.02);
             border-color: #4287f5;
         }
-
-        .option-card.highlighted {
-            transform: scale(1.05);
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-            border: 2px solid #4287f5;
-            background-color: #e8f0fe;
-        }
-
-        .option-card.disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        /* Progress indicator for guided selection */
-        .guided-progress {
-            width: 100%;
-            height: 4px;
-            background-color: #e0e0e0;
-            margin-top: 5px;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .guided-progress-bar {
-            height: 100%;
+        
+        /* Sound button styling */
+        .sound-button {
             background-color: #4287f5;
-            transition: width 0.1s linear;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+            cursor: pointer;
         }
-
-        /* Hide control buttons */
-        button[key="video_complete"], button[key="prompt_complete"] {
-            display: none !important;
-            opacity: 0 !important;
-            position: absolute !important;
-            left: -9999px !important;
+        
+        .sound-button:hover {
+            background-color: #2a6dd9;
         }
-
+        
+        /* Emotion feedback display */
+        .emotion-feedback {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #f5f5f5;
+            border-left: 4px solid #9c88ff;
+        }
+        
         /* Hide Streamlit video controls but keep the video visible */
         .stVideo > div > div > .element-container.st-emotion-cache-1n76uvr {
             display: none !important;
@@ -78,181 +71,6 @@ def add_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-def add_custom_js():
-    """Add custom JavaScript for automatic video playback, audio handling, and seamless transitions"""
-    st.markdown("""
-    <script>
-    // Main initialization function
-    function initializeAutomatedFlow() {
-        setupMouseoverAudio();
-        handleVideoAutoplay();
-        setupPromptAutoAdvance();
-        hideControlButtons();
-    }
-
-    // Setup mouseover audio for option cards
-    function setupMouseoverAudio() {
-        document.querySelectorAll('.option-card').forEach(card => {
-            if (card.dataset.audioSetup) return;
-            card.dataset.audioSetup = 'true';
-
-            card.addEventListener('mouseenter', () => {
-                const optionId = card.id;
-                const audioBtn = document.querySelector(`button[data-option="${optionId}"]`);
-                if (audioBtn) {
-                    audioBtn.click();
-                }
-            });
-        });
-    }
-
-    // Handle video autoplay and auto-continue
-    function handleVideoAutoplay() {
-        const videos = document.querySelectorAll('video');
-        videos.forEach(video => {
-            // Auto-play video if it's paused
-            if (video.paused && !video.ended) {
-                video.play().catch(e => console.log('Could not autoplay video:', e));
-            }
-
-            // Auto-continue after video ends (if not already set up)
-            if (!video.dataset.endedHandlerSet) {
-                video.dataset.endedHandlerSet = "true";
-
-                // When video ends, silently trigger completion
-                video.addEventListener('ended', function() {
-                    console.log('Video ended, auto-advancing');
-
-                    // Click the hidden video complete button
-                    setTimeout(function() {
-                        const videoCompleteBtn = document.querySelector('button[aria-label="Video Complete"]');
-                        if (videoCompleteBtn) {
-                            videoCompleteBtn.click();
-                        } else {
-                            // Fallback: click any button with 'video_complete' in key
-                            const fallbackBtn = document.querySelector('button[key*="video_complete"]');
-                            if (fallbackBtn) {
-                                fallbackBtn.click();
-                            }
-                        }
-                    }, 500);
-                });
-
-                // Also set a timeout to auto-advance if video doesn't end naturally
-                setTimeout(function() {
-                    if (!video.ended) {
-                        console.log('Video timeout reached, auto-advancing');
-                        const videoCompleteBtn = document.querySelector('button[aria-label="Video Complete"]');
-                        if (videoCompleteBtn) {
-                            videoCompleteBtn.click();
-                        } else {
-                            // Fallback: click any button with 'video_complete' in key
-                            const fallbackBtn = document.querySelector('button[key*="video_complete"]');
-                            if (fallbackBtn) {
-                                fallbackBtn.click();
-                            }
-                        }
-                    }
-                }, 10000); // 10 seconds timeout
-            }
-        });
-
-        // If no video found, auto-trigger the video complete button
-        if (videos.length === 0) {
-            setTimeout(function() {
-                console.log('No video found, auto-advancing');
-                const videoCompleteBtn = document.querySelector('button[aria-label="Video Complete"]');
-                if (videoCompleteBtn) {
-                    videoCompleteBtn.click();
-                } else {
-                    // Fallback: click any button with 'video_complete' in key
-                    const fallbackBtn = document.querySelector('button[key*="video_complete"]');
-                    if (fallbackBtn) {
-                        fallbackBtn.click();
-                    }
-                }
-            }, 1000);
-        }
-    }
-
-    // Auto-advance after prompt audio completes
-    function setupPromptAutoAdvance() {
-        const promptAudios = document.querySelectorAll('audio');
-        promptAudios.forEach(audio => {
-            if (!audio.dataset.endedHandlerSet) {
-                audio.dataset.endedHandlerSet = "true";
-
-                audio.addEventListener('ended', function() {
-                    console.log('Prompt audio ended, auto-advancing');
-                    setTimeout(function() {
-                        const promptCompleteBtn = document.querySelector('button[aria-label="Prompt Complete"]');
-                        if (promptCompleteBtn) {
-                            promptCompleteBtn.click();
-                        } else {
-                            // Fallback: click any button with 'prompt_complete' in key
-                            const fallbackBtn = document.querySelector('button[key*="prompt_complete"]');
-                            if (fallbackBtn) {
-                                fallbackBtn.click();
-                            }
-                        }
-                    }, 500);
-                });
-
-                // Also set a timeout to auto-advance if audio doesn't end naturally
-                setTimeout(function() {
-                    if (!audio.ended) {
-                        console.log('Audio timeout reached, auto-advancing');
-                        const promptCompleteBtn = document.querySelector('button[aria-label="Prompt Complete"]');
-                        if (promptCompleteBtn) {
-                            promptCompleteBtn.click();
-                        } else {
-                            // Fallback: click any button with 'prompt_complete' in key
-                            const fallbackBtn = document.querySelector('button[key*="prompt_complete"]');
-                            if (fallbackBtn) {
-                                fallbackBtn.click();
-                            }
-                        }
-                    }
-                }, 10000); // 10 seconds timeout
-            }
-        });
-    }
-
-    // Hide control buttons for seamless experience
-    function hideControlButtons() {
-        // Hide the video complete button
-        const videoCompleteBtn = document.querySelector('button[key*="video_complete"]');
-        if (videoCompleteBtn) {
-            videoCompleteBtn.style.display = 'none';
-        }
-
-        // Hide the prompt complete button
-        const promptCompleteBtn = document.querySelector('button[key*="prompt_complete"]');
-        if (promptCompleteBtn) {
-            promptCompleteBtn.style.display = 'none';
-        }
-
-        // Hide video controls (if any)
-        document.querySelectorAll('.stVideo div').forEach(el => {
-            const videoControls = el.querySelector('div.element-container');
-            if (videoControls) {
-                videoControls.style.display = 'none';
-            }
-        });
-    }
-
-    // Run initialization on page load and after Streamlit rerenders
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(initializeAutomatedFlow, 1000);
-    });
-
-    window.addEventListener('message', function(e) {
-        if (e.data.type === 'streamlit:render') {
-            setTimeout(initializeAutomatedFlow, 1000);
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
 
 # Cache for scenarios
 _scenario_cache = {}
@@ -305,6 +123,17 @@ def get_video_path(scenario_id, phase_id):
 
 def handle_option_selection(option, current_phase, scenario_id, scenario_index, scenarios):
     """Handle option selection and page navigation"""
+    # Get detected emotion if camera is enabled
+    detected_emotion = None
+    if st.session_state.get('camera_enabled', False) and st.session_state.get('webrtc_ctx_active', False):
+        detected_emotion = get_emotion_feedback()
+        # Override option emotion if detected
+        if detected_emotion:
+            option['emotion'] = detected_emotion
+            
+        # Log the detected emotion
+        print(f"Detected emotion: {detected_emotion}")
+    
     # Record the response in the database
     try:
         record_response(
@@ -346,7 +175,13 @@ def handle_option_selection(option, current_phase, scenario_id, scenario_index, 
 
     # Regular phase transition handling
     elif next_phase == "restart":
-        st.session_state.current_phase = "entering"  # Restart the scenario from beginning
+        # Get the first phase of the scenario instead of hardcoding "entering"
+        scenario = get_scenario(scenario_id)
+        if scenario and scenario['phases'] and len(scenario['phases']) > 0:
+            st.session_state.current_phase = scenario['phases'][0]['phase_id']
+        else:
+            # If we can't find the first phase, just go to exit
+            st.session_state.current_phase = "exit"
     elif next_phase == "end_waiting" or next_phase == "end_no_slide":
         # These are exit paths - mark as complete and move to next scenario
         st.session_state.current_phase = next_phase  # Use the actual exit phase
@@ -363,12 +198,18 @@ def handle_option_selection(option, current_phase, scenario_id, scenario_index, 
         # No next_phase specified - assume we should advance to the next scenario
         st.session_state.current_phase = "exit"
 
-    # Reset state for the next phase
-    st.session_state.video_played = False
-    st.session_state.prompt_played = False
-    st.session_state.options_cycle_complete = False
-    st.session_state.current_option_index = -1
-    st.session_state.guided_selection_started = False
+    # Save the feedback in session state for the feedback page
+    feedback_text = current_phase['feedback'].get(option['option_id'], {}).get('text', 'Great choice!')
+    is_positive = current_phase['feedback'].get(option['option_id'], {}).get('positive', True)
+    needs_guidance = current_phase['feedback'].get(option['option_id'], {}).get('guidance', False)
+    
+    # Store feedback information
+    st.session_state.temp_feedback = {
+        'text': feedback_text,
+        'positive': is_positive,
+        'guidance': needs_guidance,
+        'emotion': detected_emotion
+    }
 
     # Navigate to feedback page
     st.session_state.page = 'phase_feedback'
@@ -378,32 +219,17 @@ def handle_option_selection(option, current_phase, scenario_id, scenario_index, 
 def show_phase_based_scenario(scenario_index):
     """Display a phase-based social skills scenario with multiple steps and automatic flow"""
     
-    # ✅ Keep Custom CSS and JavaScript for UI Improvements
+    # Apply custom CSS
     add_custom_css()
-    add_custom_js()
 
-    # ✅ Main container to prevent duplicate elements
+    # Main container to prevent duplicate elements
     main_container = st.container()
 
     with main_container:
-        # ✅ Initialize State Variables
-        if 'guided_selection_started' not in st.session_state:
-            st.session_state.guided_selection_started = False
-        if 'current_option_index' not in st.session_state:
-            st.session_state.current_option_index = -1
-        if 'options_cycle_complete' not in st.session_state:
-            st.session_state.options_cycle_complete = False
-        if 'video_played' not in st.session_state:
-            st.session_state.video_played = False
-        if 'prompt_played' not in st.session_state:
-            st.session_state.prompt_played = False
-        if 'option_timer_start' not in st.session_state:
-            st.session_state.option_timer_start = time.time()
-
-        # ✅ Get Available Scenarios
+        # Get available scenarios
         scenarios = get_all_scenarios()
 
-        # ✅ Validate Scenario Index
+        # Validate scenario index
         if not scenarios or scenario_index >= len(scenarios):
             st.session_state.page = 'report'
             st.rerun()
@@ -411,7 +237,7 @@ def show_phase_based_scenario(scenario_index):
 
         scenario_id = scenarios[scenario_index]['id']
 
-        # ✅ Get Scenario Data
+        # Get scenario data
         scenario = get_scenario(scenario_id)
         if not scenario:
             st.error(f"Scenario with ID {scenario_id} not found")
@@ -419,123 +245,138 @@ def show_phase_based_scenario(scenario_index):
             st.rerun()
             return
 
-        # ✅ Initialize Current Phase
+        # Initialize current phase if needed
         if 'current_phase' not in st.session_state:
-            st.session_state.current_phase = "entering"
+            # Get the first phase instead of hardcoding "entering"
+            if scenario['phases'] and len(scenario['phases']) > 0:
+                # Use the first phase in the list
+                st.session_state.current_phase = scenario['phases'][0]['phase_id']
+            else:
+                st.error("No phases found in this scenario")
+                st.session_state.page = 'scenario_selection'
+                st.rerun()
+                return
 
-        # ✅ Store Scenario in Session
+        # Store scenario in session
         st.session_state.current_scenario_id = scenario_id
 
-        # ✅ Find the Current Phase
+        # Find the current phase
         current_phase = next((phase for phase in scenario['phases']
                               if phase['phase_id'] == st.session_state.current_phase), None)
 
         if not current_phase:
             st.error(f"Phase '{st.session_state.current_phase}' not found in scenario.")
-            st.session_state.current_phase = "entering"
-            st.rerun()
+            # Reset to first phase instead of hardcoding "entering"
+            if scenario['phases'] and len(scenario['phases']) > 0:
+                st.session_state.current_phase = scenario['phases'][0]['phase_id']
+                st.rerun()
+            else:
+                st.session_state.page = 'scenario_selection'
+                st.rerun()
             return
 
-        # ✅ Display Scenario Title & Description
+        # Display scenario title and description
         st.markdown(f"<h1>{scenario['title']}</h1>", unsafe_allow_html=True)
         st.markdown(f"<p style='font-size: 20px;'>{current_phase['description']}</p>", unsafe_allow_html=True)
 
-        # ✅ Embed and Auto-Play Video
+        # Display current emotion if enabled
+        if st.session_state.get('camera_enabled', False) and st.session_state.get('webrtc_ctx_active', False):
+            try:
+                # Get emotion feedback
+                emotion = get_emotion_feedback()
+                
+                # Map emotions to emojis
+                emotion_emojis = {
+                    "happy": "😊",
+                    "neutral": "😐",
+                    "negative": "😢",
+                    "thoughtful": "🤔"
+                }
+                
+                emoji = emotion_emojis.get(emotion, "😐")
+                
+                # Display current emotion
+                st.markdown(f"""
+                <div class="emotion-feedback">
+                    <div style="display: flex; align-items: center;">
+                        <div style="font-size: 30px; margin-right: 10px;">{emoji}</div>
+                        <div>
+                            <strong>Current mood:</strong> {emotion.capitalize()}
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            except Exception as e:
+                print(f"Error displaying emotion: {e}")
+
+        # Embed video - video plays automatically with st.video
         video_path = get_video_path(scenario_id, current_phase['phase_id'])
         if video_path:
-            st.video(video_path)
-
-            # ✅ JavaScript to Auto-Detect Video Completion
-            st.markdown("""
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                let video = document.querySelector('video');
-                if (video) {
-                    video.addEventListener('ended', function() {
-                        var button = document.querySelector('button#video_complete');
-                        if (button) {
-                            button.click();
-                        }
-                    });
-                }
-            });
-            </script>
-            """, unsafe_allow_html=True)
-
+            st.video(video_path, start_time=0)
         else:
             st.image(scenario['image_path'], use_column_width=True)
 
-        # ✅ Hidden Button to Detect Video Completion
-        if st.button("Video Complete", key="video_complete", help="Video completion indicator"):
-            st.session_state.video_played = True
-            st.rerun()
-
-        # ✅ Display Prompt
+        # Display prompt
         st.markdown(
             f"<div class='avatar-message'><h2>{st.session_state.selected_avatar['name']} asks:</h2>"
             f"<p style='font-size: 20px;'>{current_phase['prompt']}</p></div>",
             unsafe_allow_html=True
         )
 
-        # ✅ Play Text-to-Speech Prompt After Video
-        if st.session_state.video_played and not st.session_state.prompt_played:
+        # Play text-to-speech prompt
+        if st.session_state.get('sound_enabled', True):
             prompt_text = f"{st.session_state.selected_avatar['name']} asks: {current_phase['prompt']}"
-            audio_data = text_to_speech(prompt_text, auto_play=True)
+            # Generate a key that is unique to this prompt
+            prompt_key = f"prompt_{scenario_id}_{current_phase['phase_id']}"
             
-            # ✅ Auto-Play Audio
-            if "base64," in audio_data:
-                audio_b64 = audio_data.split('base64,')[1]
-                st.markdown(f"""
-                <div style="display:none;">
-                    <audio autoplay>
-                        <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
-                    </audio>
-                </div>
-                """, unsafe_allow_html=True)
+            # Create the audio element for auto-play
+            audio_html = text_to_speech(prompt_text, auto_play=True)
+            st.markdown(f"<div>{audio_html}</div>", unsafe_allow_html=True)
 
-        # ✅ Hidden Button to Mark Prompt Completion
-        if st.button("Prompt Complete", key="prompt_complete", help="Prompt completion indicator"):
-            st.session_state.prompt_played = True
-            st.session_state.guided_selection_started = True
-            st.session_state.current_option_index = 0
-            st.session_state.option_timer_start = time.time()
-            st.rerun()
-
-        # ✅ Display Choices
+        # Display choices with direct click and sound buttons
         choices = current_phase['options']
-        selected_choice = None
-        cols = st.columns(len(choices))
-
+        
+        # Create a separate column for each choice
         for i, choice in enumerate(choices):
-            with cols[i]:
-                if st.button(choice["text"], key=f"option_{i}"):
-                    selected_choice = choice
-                    st.session_state["selected_option"] = selected_choice
-                    st.rerun()
-
-        # ✅ Emotion Detection & Logic Handling
-        if "selected_option" in st.session_state:
-            choice = st.session_state["selected_option"]
-
-            # Detect Emotion
-            detected_emotion = get_emotion_feedback()  # Ensure this function is implemented
+            # Create a container for the option
+            option_container = st.container()
             
-            st.write(f"Emotion detected: {detected_emotion}")
-
-            if detected_emotion == "happy":
-                text_to_speech("Great choice! That was a kind response!")
-                time.sleep(5)  # Wait before continuing
-                st.session_state.page = "scenario_selection"
-                st.rerun()
-
-            elif detected_emotion in ["negative", "neutral"]:
-                st.warning("Hmm, let's try again.")
-                st.session_state["retry_count"] = st.session_state.get("retry_count", 0) + 1
+            # Create two columns - one for the option card and one for buttons
+            col1, col2 = option_container.columns([4, 1])
+            
+            with col1:
+                # Option button - clicking this selects the option
+                if st.button(f"{choice.get('icon', '🔹')} {choice['text']}", 
+                            key=f"option_{i}", 
+                            use_container_width=True):
+                    handle_option_selection(choice, current_phase, scenario_id, scenario_index, scenarios)
+            
+            with col2:
+                # Sound button - clicking this reads the option text aloud
+                prompt_key = f"sound_option_{i}"
+                if st.button("🔊", key=prompt_key, help="Read option aloud"):
+                    # This is just to trigger the audio generation below
+                    st.session_state[f"play_{prompt_key}"] = True
                 
-                if st.session_state["retry_count"] >= 2:
-                    st.error("Taking a break and returning to scenario selection.")
-                    st.session_state.page = "scenario_selection"
-                    st.rerun()
-                else:
-                    st.session_state["selected_option"] = None  # Reset choice
-                    st.rerun()
+                # If sound button was clicked, generate and play the audio
+                if st.session_state.get(f"play_{prompt_key}", False):
+                    audio_html = text_to_speech(choice['text'], auto_play=True)
+                    st.markdown(f"<div>{audio_html}</div>", unsafe_allow_html=True)
+                    # Reset for next time
+                    st.session_state[f"play_{prompt_key}"] = False
+            
+        # Add emotion detection feedback
+        if st.session_state.get('camera_enabled', False) and st.session_state.get('webrtc_ctx_active', False):
+            emotion_container = st.container()
+            with emotion_container:
+                try:
+                    # Get current emotion
+                    emotion = get_emotion_feedback()
+                    
+                    # If emotion is distressed, show supportive message
+                    if emotion == "negative":
+                        st.warning("I notice you seem a bit upset. Would you like to take a short break or talk about how you're feeling?")
+                    elif emotion == "happy":
+                        st.success("I can see you're enjoying this! That's wonderful!")
+                except Exception as e:
+                    print(f"Error processing emotion feedback: {e}")

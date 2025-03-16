@@ -2,7 +2,9 @@ import streamlit as st
 import os
 import gc
 import threading
-from pages.phase_based_scenario import show_phase_based_scenario,add_custom_js, add_custom_css
+import io
+from PIL import Image
+from pages.phase_based_scenario import show_phase_based_scenario
 
 # Set page configuration FIRST - before any other Streamlit commands
 st.set_page_config(
@@ -47,9 +49,6 @@ def prefetch_resources():
         except Exception as e:
             print(f"Error cleaning up ScenarioDAO thread: {e}")
 
-        # We won't try to prefetch avatars in the background since they're simple and
-        # can be quickly fetched on-demand in the main thread
-
         print("Prefetch complete: scenarios loaded in background")
     except Exception as e:
         print(f"Prefetch error: {e}")
@@ -73,7 +72,7 @@ def optimize_performance():
     print(f"Started background prefetch thread (ID: {prefetch_thread.ident})")
 
 
-# ----- DIRECT FIX FOR SESSION PERSISTENCE -----
+# Session persistence fixes
 def fix_session_persistence():
     """Direct approach to ensure session persistence across app restarts"""
     # Create a session_data directory if it doesn't exist
@@ -119,7 +118,6 @@ def fix_session_persistence():
 
 # Apply the direct fix FIRST
 fix_session_persistence()
-# ----- END OF DIRECT FIX -----
 
 # Import database schema and path
 from database.db_schema import initialize_database, populate_initial_data, DB_PATH
@@ -154,9 +152,14 @@ from pages import (
 )
 from pages.tts_helper import text_to_speech, create_tts_button, auto_play_prompt
 
-# Import session manager and emotion detection
+# Import session manager and emotion detection - use the new WebRTC approach
 from utils.session_manager import initialize_session_state
-from utils.emotion_detection import initialize_emotion_detection, render_emotion_detection_ui
+from utils.webrtc_emotion_detection import (
+    setup_emotion_detection, 
+    render_emotion_display, 
+    get_emotion_feedback, 
+    is_child_distressed
+)
 
 # Clear cache on startup to prevent stale data
 st.cache_data.clear()
@@ -172,12 +175,49 @@ st.markdown("""
 
     /* Make sure the rest of the sidebar is visible */
     section[data-testid="stSidebar"] {display: block !important; visibility: visible !important;}
+    
+    /* Emotion detection display */
+    .emotion-display {
+        border: 2px solid #9c88ff;
+        border-radius: 10px;
+        padding: 10px;
+        margin-top: 10px;
+        background-color: #f9f7ff;
+    }
+    .emotion-emoji {
+        font-size: 40px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .camera-feed {
+        border: 2px solid #9c88ff;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    
+    /* WebRTC specific styles */
+    .stVideoFeed {
+        border: 2px solid #9c88ff;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    /* Hide WebRTC control buttons */
+    button[title="Select device"] {
+        display: none !important;
+    }
+    
+    /* Style for the emotion detection toggle */
+    div[data-testid="stCheckbox"] label {
+        font-weight: bold;
+        color: #512da8;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state
 initialize_session_state()
-initialize_emotion_detection()
 
 # Make sure sound toggle is initialized
 if 'sound_enabled' not in st.session_state:
@@ -244,15 +284,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # Main app function
 def main():
-    add_custom_css()
-    add_custom_js()
     # Apply performance optimizations
     optimize_performance()
-
-    # Already handled session restoration with our direct fix
 
     # Create unified sidebar
     with st.sidebar:
@@ -305,6 +340,16 @@ def main():
             st.session_state.camera_enabled = camera_enabled
             st.rerun()
 
+        # Display emotion detection UI if enabled
+        if st.session_state.get('camera_enabled', False):
+            st.markdown("### Emotion Detection")
+            # Initialize WebRTC emotion detection
+            webrtc_ctx = setup_emotion_detection()
+            
+            # Display emotion results if WebRTC is active
+            if webrtc_ctx.state.playing:
+                render_emotion_display()
+
         # Session info at the bottom
         st.markdown("---")
         if st.session_state.get('selected_avatar'):
@@ -320,10 +365,6 @@ def main():
             """, unsafe_allow_html=True)
         else:
             st.caption(f"Session ID: {st.session_state.get('db_session_id', 'Not initialized')[:8]}...")
-
-    # Show emotion detection UI if enabled
-    if st.session_state.get('emotion_detector_running', False):
-        render_emotion_detection_ui()
 
     # Page navigation
     current_page = st.session_state.get('page', 'avatar_selection')

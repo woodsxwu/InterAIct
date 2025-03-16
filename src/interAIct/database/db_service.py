@@ -243,6 +243,23 @@ def record_emotion_detection(session_id, emotion, confidence):
         raise DatabaseError(f"Error recording emotion: {e}")
 
 
+def record_attention_metric(session_id, attention_state, confidence):
+    """Record an attention metric"""
+    try:
+        with DbTransaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO attention_metrics (session_id, attention_state, confidence)
+                VALUES (?, ?, ?)
+                """,
+                (session_id, attention_state, confidence)
+            )
+            return cursor.lastrowid
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Error recording attention metric: {e}")
+
+
 def create_parent_alert(session_id, scenario_id, phase_id, emotion):
     """Create a parent alert for concerning emotions"""
     try:
@@ -327,6 +344,42 @@ def get_session_responses(session_id):
         raise DatabaseError(f"Error getting session responses: {e}")
 
 
+def get_session_emotions(session_id):
+    """Get all emotion detections for a session"""
+    try:
+        with DbTransaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM emotion_detections
+                WHERE session_id = ?
+                ORDER BY timestamp
+                """,
+                (session_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Error getting session emotions: {e}")
+
+
+def get_session_attention_metrics(session_id):
+    """Get all attention metrics for a session"""
+    try:
+        with DbTransaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM attention_metrics
+                WHERE session_id = ?
+                ORDER BY timestamp
+                """,
+                (session_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Error getting session attention metrics: {e}")
+
+
 def generate_report(session_id):
     """Generate a comprehensive report for a session"""
     try:
@@ -352,14 +405,25 @@ def generate_report(session_id):
                 """,
                 (session_id,)
             )
-
             emotion_detections = [dict(row) for row in cursor.fetchall()]
+            
+            # Get attention metrics
+            cursor.execute(
+                """
+                SELECT * FROM attention_metrics 
+                WHERE session_id = ?
+                ORDER BY timestamp
+                """,
+                (session_id,)
+            )
+            attention_metrics = [dict(row) for row in cursor.fetchall()]
 
             # Compile the report data
             report = {
                 'session': dict(session),
                 'responses': responses,
-                'emotion_detections': emotion_detections
+                'emotion_detections': emotion_detections,
+                'attention_metrics': attention_metrics
             }
 
             return report
