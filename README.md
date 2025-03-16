@@ -24,7 +24,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 
 ## Preview
 
-![AI Learning Screenshot](scr/interactAI/assets/screenshot.png)
+![AI Learning Screenshot](src/interactAI/assets/screenshot.png)
 
 ## Prerequisite
 
@@ -44,7 +44,7 @@ cd lightning_mcqueen/src/interactAI
 
 ### Create a Virtual Environment:
 
-#### Create
+#### Create:
 
 - **For Windows:**
 
@@ -58,7 +58,7 @@ python -m venv venv
 python3 -m venv venv
 ```
 
-#### Activate
+#### Activate:
 
 - **For Windows:**
 
