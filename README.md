@@ -95,15 +95,15 @@ streamlit run app.py
 
 ## Team
 
-**Bijing Tang\*  
+**Bijing Tang**  
 📧 Contact: [tang.bij@northeastern.edu](mailto:tang.bij@northeastern.edu)  
-**Charanya Ramprasad*  
+**Charanya Ramprasad**  
 📧 Contact: [ramprasad.c@northeastern.edu](mailto:ramprasad.c@northeastern.edu)  
-\*\*Renlinhui Li*  
+**Renlinhui Li**
 📧 Contact: [li.renl@northeastern.edu](mailto:li.renl@northeastern.edu)  
-**Zhixiao Wu\*  
+**Zhixiao Wu**
 📧 Contact: [wu.zhixia@northeastern.edu](mailto:wu.zhixia@northeastern.edu)  
-**Zihao Wang\*  
+**Zihao Wang**  
 📧 Contact: [wang.zihao10@northeastern.edu](mailto:wang.zihao10@northeastern.edu)
 
 ## License
