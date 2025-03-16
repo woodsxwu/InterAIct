@@ -25,7 +25,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 
 ## Preview
 
-![AI Learning Screenshot](src/ineractAI/assets/preview.png)
+![AI Learning Screenshot](screenshots/choosing_avatars.png)
 
 ## Prerequisite
 
