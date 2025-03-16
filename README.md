@@ -40,7 +40,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 ### Clone The Repository:
 
 ```bash
-git clone [https://github.com/yourusername/lightning_mcqueen.git](https://github.com/woodsxwu/InterAIct.git)
+git clone [https://github.com/yourusername/InterAIct.git](https://github.com/woodsxwu/InterAIct.git)
 cd src/interAIct
 ```
 
@@ -48,13 +48,13 @@ cd src/interAIct
 
 #### Create:
 
-- **For Windows:**
+- ***For Windows:***
 
 ```bash
 python -m venv venv
 ```
 
-- **For macOS/Linux:**
+- ***For macOS/Linux:***
 
 ```bash
 python3 -m venv venv
@@ -62,13 +62,13 @@ python3 -m venv venv
 
 #### Activate:
 
-- **For Windows:**
+- ***For Windows:***
 
 ```bash
 venv\Scripts\activate
 ```
 
-- **For macOS/Linux:**
+- ***For macOS/Linux:***
 
 ```bash
 source venv/bin/activate
@@ -100,7 +100,7 @@ streamlit run app.py
 **Bijing Tang**  
 📧 Contact: [tang.bij@northeastern.edu](mailto:tang.bij@northeastern.edu)  
 **Charanya Ramprasad**  
-📧 Contact: [ramprasad.c@northeastern.edu](mailto:ramprasad.c@northeastern.edu)  
+📧 Contact: [charanya.ramprasad@gmail.com](mailto:charanya.ramprasad@gmail.com)  
 **Renlinhui Li**  
 📧 Contact: [li.renl@northeastern.edu](mailto:li.renl@northeastern.edu)  
 **Zhixiao Wu**  
