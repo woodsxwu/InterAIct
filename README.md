@@ -24,7 +24,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 
 ## Preview
 
-![AI Learning Screenshot](assets/screenshot.png)
+![AI Learning Screenshot](scr/interactAI/assets/screenshot.png)
 
 ## Prerequisite
 
@@ -99,9 +99,9 @@ streamlit run app.py
 📧 Contact: [tang.bij@northeastern.edu](mailto:tang.bij@northeastern.edu)  
 **Charanya Ramprasad**  
 📧 Contact: [ramprasad.c@northeastern.edu](mailto:ramprasad.c@northeastern.edu)  
-**Renlinhui Li**
+**Renlinhui Li**  
 📧 Contact: [li.renl@northeastern.edu](mailto:li.renl@northeastern.edu)  
-**Zhixiao Wu**
+**Zhixiao Wu**  
 📧 Contact: [wu.zhixia@northeastern.edu](mailto:wu.zhixia@northeastern.edu)  
 **Zihao Wang**  
 📧 Contact: [wang.zihao10@northeastern.edu](mailto:wang.zihao10@northeastern.edu)
