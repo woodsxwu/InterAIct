@@ -63,12 +63,6 @@ log/
 ehthumbs.db
 Thumbs.db
 
-# Videos and large media files (customize as needed)
-*.mp4
-*.mov
-*.avi
-*.wmv
-
 # Other
 .env
 .envrc
