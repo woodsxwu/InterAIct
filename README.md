@@ -45,7 +45,7 @@ cd src/interAIct
 
 ### Create a Virtual Environment:
 
-#### Create:
+#### - Create:
 
 - ***For Windows:***
 
@@ -59,7 +59,7 @@ python -m venv venv
 python3 -m venv venv
 ```
 
-#### Activate:
+#### - Activate:
 
 - ***For Windows:***
 
@@ -73,13 +73,13 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### Install Dependencies:
+### - Install Dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Run:
+### - Run:
 
 ```bash
 streamlit run app.py
