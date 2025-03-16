@@ -33,7 +33,7 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 - Python 3.8+
 - Streamlit 1.32.0
 - ONNX Runtime
-- Other dependencies (check [requirements.txt](requirements.txt))
+- Other dependencies (check [requirements.txt](src/InterAIct/requirements.txt))
 
 ## Installation
 
