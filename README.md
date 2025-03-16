@@ -1,8 +1,8 @@
 # InterAIct
 
-## An intelligent educational tool powered by AI
+## -- An intelligent educational tool powered by AI
 
-InterAIct is an AI-powered interactive learning app designed to help autistic children practice social skills in real-world scenarios, using on-device intelligence for a responsive and immersive experience. This application simulates different social scenarios that children would meet in real life and guidance them on understanding social cues, handling interactions, and responding to real-life situations.
+InterAIct is an AI-powered interactive learning app designed to help autistic children practice social skills in real-world social scenarios, using on-device intelligence for a responsive and immersive experience. This application simulates different social scenarios that children would meet in real life and guidance them on understanding social cues, handling interactions, and responding to real-life situations.
 
 # Table of Contents
 
@@ -15,17 +15,17 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 ## Features
 
 - 🐶 **Cute Companion Avatars**
-- 📚 **Real-time Emotion Recognition**
-- 🎨 **Real-World Scenarios**
+- 😊 **Real-time Emotion Recognition**
+- 🛝 **Real-World Scenarios**
 - 🎶 **AI Voice Guidance**
 - 👏 **Interactive Choices & Feedback**
-- 📑 **Emotion Report Genetation**
+- 📝 **Emotion Report Genetation**
 - 🛟 **High Privacy & Security**
 - 💻 **NPU Acceleration Support**
 
 ## Preview
 
-![AI Learning Screenshot](src/ineractAI/assets/screenshot.png)
+![AI Learning Screenshot](src/ineractAI/assets/preview.png)
 
 ## Prerequisite
 
