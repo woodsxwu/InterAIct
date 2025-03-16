@@ -73,13 +73,13 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### - Install Dependencies:
+### Install Dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### - Run:
+### Run:
 
 ```bash
 streamlit run app.py
