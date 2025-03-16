@@ -21,7 +21,6 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 - 👏 **Interactive Choices & Feedback**
 - 📝 **Emotion Report Genetation**
 - 🛟 **High Privacy & Security**
-- 💻 **NPU Acceleration Support**
 
 ## Preview
 
@@ -41,8 +40,8 @@ InterAIct is an AI-powered interactive learning app designed to help autistic ch
 ### Clone The Repository:
 
 ```bash
-git clone https://github.com/yourusername/lightning_mcqueen.git
-cd lightning_mcqueen/src/interactAI
+git clone [https://github.com/yourusername/lightning_mcqueen.git](https://github.com/woodsxwu/InterAIct.git)
+cd src/interAIct
 ```
 
 ### Create a Virtual Environment:
